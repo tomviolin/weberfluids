@@ -208,6 +208,70 @@ Some very old browsers may not even be able to display the slider controls.</p>
 </div>
 
 <script>
+const gpu = new GPU.GPU();
+	const STRESS_LIMIT = 0.001;
+	const canvasWidth = 900;
+	const canvasHeight = 450;
+	let pxPerSquare = 6;
+	let xdim = canvasWidth / pxPerSquare;
+	let ydim = canvasHeight / pxPerSquare;
+	var ofs = 0;
+	// Compute the stress, or change in entropy, at each lattice site:
+	const entropy = gpu.createKernel(function(n0,nE,e0,eE) { //, nW, nN, nS, nNE, nSE, nNW, nSW, e0, eE, eW, eN, eS, eNE, eSE, eNW, eSW) {
+		const i = this.thread.x;
+		const n0i = n0[i];
+		const nEi = nE[i];
+		/*
+		const nWi = nW[i];
+		const nNi = nN[i];
+		const nSi = nS[i];
+		const nNEi = nNE[i];
+		const nSEi = nSE[i];
+		const nNWi = nNW[i];
+		const nSWi = nSW[i];
+		*/
+		const e0i = e0[i];
+		const eEi = eE[i];
+			/*
+		const eWi = eW[i];
+		const eNi = eN[i];
+		const eSi = eS[i];
+		const eNEi = eNE[i];
+		const eSEi = eSE[i];
+		const eNWi = eNW[i];
+		const eSWi = eSW[i];
+       		*/
+		const stress = (e0i-n0i)*(e0i-n0i)/e0i
+			   + (eEi-nEi)*(eEi-nEi)/eEi;
+			/*
+			   + (eWi-nWi)*(eWi-nWi)/eWi
+			   + (eNi-nNi)*(eNi-nNi)/eNi
+			   + (eSi-nSi)*(eSi-nSi)/eSi
+			   + (eNEi-nNEi)*(eNEi-nNEi)/eNEi
+			   + (eSEi-nSEi)*(eSEi-nSEi)/eSEi
+			   + (eNWi-nNWi)*(eNWi-nNWi)/eNWi
+			   + (eSWi-nSWi)*(eSWi-nSWi)/eSWi
+		;
+       		*/
+		if (stress > this.constants.STRESS_LIMIT) {
+			return [n0i, nEi];// nWi, nNi, nSi, nNEi, nSEi, nNWi, nSWi];
+		} else {
+			return [e0i*0.9+n0i*0.1, 
+				eEi*0.9+nEi*0.1]; 
+			/*
+				eWi*0.9+nWi*0.1,
+				eNi*0.9+nNi*0.1, 
+				eSi*0.9+nSi*0.1, 
+				eNEi*0.9+nNEi*0.1, 
+				eSEi*0.9+nSEi*0.1, 
+				eNWi*0.9+nNWi*0.1, 
+				eSWi*0.9+nSWi*0.1];
+       			*/
+		}
+	})
+		.setOutput([xdim*ydim,2])
+		.setConstants({STRESS_LIMIT});
+
 var barrierList;
 var xmlhttp = new XMLHttpRequest();
 xmlhttp.onreadystatechange = function() {
@@ -224,7 +288,6 @@ xmlhttp.onreadystatechange = function() {
 xmlhttp.open("GET", "bdata.json", true);
 xmlhttp.send();
       
-	const STRESS_LIMIT = 0.001;
 
 
 
@@ -244,11 +307,11 @@ xmlhttp.send();
 	var sizeSelect = document.getElementById('sizeSelect');
 	sizeSelect.selectedIndex = 0;
 	if (mobile) sizeSelect.selectedIndex = 0;		// smaller works better on mobile platforms
-	var pxPerSquare = Number(sizeSelect.options[sizeSelect.selectedIndex].value);
+	//var pxPerSquare = Number(sizeSelect.options[sizeSelect.selectedIndex].value);
 	sizeSelect.style.display = 'none';
 													// width of plotted grid site in pixels
-	var xdim = canvas.width / pxPerSquare;			// grid dimensions for simulation
-	var ydim = canvas.height / pxPerSquare;
+	xdim = canvas.width / pxPerSquare;			// grid dimensions for simulation
+	ydim = canvas.height / pxPerSquare;
 	var stepsSlider = document.getElementById('stepsSlider');
 	var startButton = document.getElementById('startButton');
 	var speedSlider = document.getElementById('speedSlider');
@@ -335,6 +398,12 @@ xmlhttp.send();
 	var uy = new Array(xdim*ydim);
 	var curl = new Array(xdim*ydim);
 	var barrier = new Array(xdim*ydim);		// boolean array of barrier locations
+
+
+
+
+
+
 
 	// Initialize to a steady rightward flow with no barriers:
 	for (var y=0; y<ydim; y++) {
@@ -468,10 +537,13 @@ xmlhttp.send();
 			oldMouseX = -1; oldMouseY = -1;
 		}
 		// Execute a bunch of time steps:
+		console.log("hhoohaa");
 		for (var step=0; step<stepsPerFrame; step++) {
 			collide();
 			//stabilize
-			entropy();
+			if (typeof n0 != 'undefined') {
+			const c = entropy(n0,nE,e0,eE);//, nW, nN, nS, nNE, nSE, nNW, nSW, e0, eE, eW, eN, eS, eNE, eSE, eNW, eSW);
+			//console.log(c);
 			stream();
 			if (tracerCheck.checked) moveTracers();
 			if (pushing) push(pushX, pushY, pushUX, pushUY);
@@ -576,59 +648,6 @@ xmlhttp.send();
 			nSW[xdim-1+y*xdim] = nSW[xdim-2+y*xdim];
 		}
 	}
-	var ofs = 0;
-	function entropy() {
-		//const tn0 = tf.tensor(n0);
-		//console.log(n0);
-		ofs = (ofs+1)%1;
-		for (var i = ofs; i < xdim*ydim; i+= 1) {
-		//for (var y=0; y<ydim; y++) {
-			//for (var x=0; x<xdim; x++) {
-			//	var i = x + y*xdim;
-				n0i=n0[i];
-				nEi=nE[i];
-				nWi=nW[i];
-				nNi=nN[i];
-				nSi=nS[i];
-				nNEi=nNE[i];
-				nSEi=nSE[i];
-				nNWi=nNW[i];
-				nSWi=nSW[i];
-				e0i=e0[i];
-				eEi=eE[i];
-				eWi=eW[i];
-				eNi=eN[i];
-				eSi=eS[i];
-				eNEi=eNE[i];
-				eSEi=eSE[i];
-				eNWi=eNW[i];
-				eSWi=eSW[i];
-
-				var stress = (e0i-n0i)*(e0i-n0i)/e0i
-					   + (eEi-nEi)*(eEi-nEi)/eEi
-					   + (eWi-nWi)*(eWi-nWi)/eWi
-					   + (eNi-nNi)*(eNi-nNi)/eNi
-					   + (eSi-nSi)*(eSi-nSi)/eSi
-					   + (eNEi-nNEi)*(eNEi-nNEi)/eNEi
-					   + (eSEi-nSEi)*(eSEi-nSEi)/eSEi
-					   + (eNWi-nNWi)*(eNWi-nNWi)/eNWi
-					   + (eSWi-nSWi)*(eSWi-nSWi)/eSWi
-				;
-				if (stress > STRESS_LIMIT) {
-					n0[i] = e0i*0.9+n0i*0.1;
-					nE[i] = eEi*0.9+nEi*0.1;
-					nW[i] = eWi*0.9+nWi*0.1;
-					nN[i] = eNi*0.9+nNi*0.1;
-					nS[i] = eSi*0.9+nSi*0.1;
-					nNE[i] = eNEi*0.9+nNEi*0.1;
-					nSE[i] = eSEi*0.9+nSEi*0.1;
-					nNW[i] = eNWi*0.9+nNWi*0.1;
-					nSW[i] = eSWi*0.9+nSWi*0.1;
-				} // if stress
-			//} // for x
-		} // for y
-	} // function
-
 
 	// Move particles along their directions of motion:
 	function stream() {
