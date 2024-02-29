@@ -83,12 +83,12 @@
 <a href="http://physics.weber.edu">Physics Department</a>, 
 <a href="http://weber.edu">Weber State University</a></p>
 
-<canvas id="theCanvas" width="600" height="300">This application runs only in modern
+<canvas id="theCanvas" style="width:900px; height:450px;" width="900" height="450">This application runs only in modern
 browsers. For best results, use Google Chrome.</canvas>
 <p><b>Hold SHIFT to join consecutive clicks with straight lines</b></p>
 <div style="margin-bottom:0.5em" >
 	<select id="sizeSelect" onchange="resize()">
-		<option value="4">100 x 40</option>
+		<option value="6">100 x 40</option>
 	</select>
 	<script>
 		/*
@@ -839,10 +839,27 @@ xmlhttp.send();
 	// Color a barrier square in the image data array, one pixel at a time (rgb each in range 0 to 255):
 	function barrierSquare(x, y) {
 		var flippedy = ydim - y - 1;			// put y=0 at the bottom
-		for (var py=flippedy*pxPerSquare; py<(flippedy+1)*pxPerSquare; py++) {
-			for (var px=x*pxPerSquare; px<(x+1)*pxPerSquare; px++) {
+		
+		var py0=flippedy*pxPerSquare;
+		var py1=(flippedy+1)*pxPerSquare;
+		for (var py=py0;py<py1; py++) {
+			var px0=x*pxPerSquare;
+			var px1=(x+1)*pxPerSquare;
+			for (var px=px0; px<px1; px++) {
 				var index = (px + py*image.width) * 4;
-				var r =  ((px+py)%2)*255;
+				var r = 160;//((x+y)%2)*255;
+				if (
+					px==px0 || 
+					//px==px1-1 || 
+				        py==py0 //|| 
+					//py==py1-1
+				) {
+
+					r=255;
+				}
+				if (px==px1-1 || py==py1-1){
+					r = 0;
+				}
 				image.data[index+0] = r;
 				image.data[index+1] = r;
 				image.data[index+2] = r;
