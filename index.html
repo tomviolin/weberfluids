@@ -209,68 +209,60 @@ Some very old browsers may not even be able to display the slider controls.</p>
 
 <script>
 const gpu = new GPU.GPU();
-	const STRESS_LIMIT = 0.001;
-	const canvasWidth = 900;
-	const canvasHeight = 450;
-	let pxPerSquare = 6;
-	let xdim = canvasWidth / pxPerSquare;
-	let ydim = canvasHeight / pxPerSquare;
-	var ofs = 0;
-	// Compute the stress, or change in entropy, at each lattice site:
-	const entropy = gpu.createKernel(function(n0,nE,e0,eE) { //, nW, nN, nS, nNE, nSE, nNW, nSW, e0, eE, eW, eN, eS, eNE, eSE, eNW, eSW) {
-		const i = this.thread.x;
-		const n0i = n0[i];
-		const nEi = nE[i];
-		/*
-		const nWi = nW[i];
-		const nNi = nN[i];
-		const nSi = nS[i];
-		const nNEi = nNE[i];
-		const nSEi = nSE[i];
-		const nNWi = nNW[i];
-		const nSWi = nSW[i];
-		*/
-		const e0i = e0[i];
-		const eEi = eE[i];
-			/*
-		const eWi = eW[i];
-		const eNi = eN[i];
-		const eSi = eS[i];
-		const eNEi = eNE[i];
-		const eSEi = eSE[i];
-		const eNWi = eNW[i];
-		const eSWi = eSW[i];
-       		*/
-		const stress = (e0i-n0i)*(e0i-n0i)/e0i
-			   + (eEi-nEi)*(eEi-nEi)/eEi;
-			/*
-			   + (eWi-nWi)*(eWi-nWi)/eWi
-			   + (eNi-nNi)*(eNi-nNi)/eNi
-			   + (eSi-nSi)*(eSi-nSi)/eSi
-			   + (eNEi-nNEi)*(eNEi-nNEi)/eNEi
-			   + (eSEi-nSEi)*(eSEi-nSEi)/eSEi
-			   + (eNWi-nNWi)*(eNWi-nNWi)/eNWi
-			   + (eSWi-nSWi)*(eSWi-nSWi)/eSWi
-		;
-       		*/
-		if (stress > this.constants.STRESS_LIMIT) {
-			return [n0i, nEi];// nWi, nNi, nSi, nNEi, nSEi, nNWi, nSWi];
-		} else {
-			return [e0i*0.9+n0i*0.1, 
-				eEi*0.9+nEi*0.1]; 
-			/*
-				eWi*0.9+nWi*0.1,
-				eNi*0.9+nNi*0.1, 
-				eSi*0.9+nSi*0.1, 
-				eNEi*0.9+nNEi*0.1, 
-				eSEi*0.9+nSEi*0.1, 
-				eNWi*0.9+nNWi*0.1, 
-				eSWi*0.9+nSWi*0.1];
-       			*/
-		}
-	})
-		.setOutput([xdim*ydim,2])
-		.setConstants({STRESS_LIMIT});
+const STRESS_LIMIT = 0.001;
+const canvasWidth = 900;
+const canvasHeight = 450;
+let pxPerSquare = 6;
+let xdim = canvasWidth / pxPerSquare;
+let ydim = canvasHeight / pxPerSquare;
+var ofs = 0;
+// Compute the stress, or change in entropy, at each lattice site:
+const entropy = gpu.createKernel(function(xdim,ydim,n0,nE, nW, nN, nS, nNE, nSE, nNW, nSW, e0, eE, eW, eN, eS, eNE, eSE, eNW, eSW) {
+	const i = this.thread.x + xdim*this.thread.y;
+	const n0i = n0[i];
+	const nEi = nE[i];
+	const nWi = nW[i];
+	const nNi = nN[i];
+	const nSi = nS[i];
+	const nNEi = nNE[i];
+	const nSEi = nSE[i];
+	const nNWi = nNW[i];
+	const nSWi = nSW[i];
+	const e0i = e0[i];
+	const eEi = eE[i];
+	const eWi = eW[i];
+	const eNi = eN[i];
+	const eSi = eS[i];
+	const eNEi = eNE[i];
+	const eSEi = eSE[i];
+	const eNWi = eNW[i];
+	const eSWi = eSW[i];
+	const stress = (e0i-n0i)*(e0i-n0i)/e0i
+		   + (eEi-nEi)*(eEi-nEi)/eEi;
+		   + (eWi-nWi)*(eWi-nWi)/eWi
+		   + (eNi-nNi)*(eNi-nNi)/eNi
+		   + (eSi-nSi)*(eSi-nSi)/eSi
+		   + (eNEi-nNEi)*(eNEi-nNEi)/eNEi
+		   + (eSEi-nSEi)*(eSEi-nSEi)/eSEi
+		   + (eNWi-nNWi)*(eNWi-nNWi)/eNWi
+		   + (eSWi-nSWi)*(eSWi-nSWi)/eSWi
+	;
+	if (stress > this.constants.STRESS_LIMIT) {
+		return ([n0i, nEi, nWi, nNi, nSi, nNEi, nSEi, nNWi, nSWi]);
+	} else {
+		return ([e0i*0.9+n0i*0.1, 
+			eEi*0.9+nEi*0.1, 
+			eWi*0.9+nWi*0.1,
+			eNi*0.9+nNi*0.1, 
+			eSi*0.9+nSi*0.1, 
+			eNEi*0.9+nNEi*0.1, 
+			eSEi*0.9+nSEi*0.1, 
+			eNWi*0.9+nNWi*0.1, 
+			eSWi*0.9+nSWi*0.1]);
+	}
+})
+	.setOutput([xdim,ydim])
+	.setConstants({STRESS_LIMIT});
 
 var barrierList;
 var xmlhttp = new XMLHttpRequest();
@@ -293,7 +285,7 @@ xmlhttp.send();
 
 
 	const clamp = (val, min, max) => Math.min(Math.max(val, min), max)
-
+	let entropysaved;
 
 	// Global variables:	
 	var globalShiftKey;
@@ -370,34 +362,35 @@ xmlhttp.send();
 
 	// Create the arrays of fluid particle densities, etc. (using 1D arrays for speed):
 	// To index into these arrays, use x + y*xdim, traversing rows first and then columns.
-	var n0 = new Array(xdim*ydim);			// microscopic densities along each lattice direction
-	var nN = new Array(xdim*ydim);
-	var nS = new Array(xdim*ydim);
-	var nE = new Array(xdim*ydim);
-	var nW = new Array(xdim*ydim);
-	var nNE = new Array(xdim*ydim);
-	var nSE = new Array(xdim*ydim);
-	var nNW = new Array(xdim*ydim);
-	var nSW = new Array(xdim*ydim);
+	var n0 = new Float32Array(xdim*ydim);			// microscopic densities along each lattice direction
+	
+	var nN = new Float32Array(xdim*ydim);
+	var nS = new Float32Array(xdim*ydim);
+	var nE = new Float32Array(xdim*ydim);
+	var nW = new Float32Array(xdim*ydim);
+	var nNE = new Float32Array(xdim*ydim);
+	var nSE = new Float32Array(xdim*ydim);
+	var nNW = new Float32Array(xdim*ydim);
+	var nSW = new Float32Array(xdim*ydim);
 
 
-	var e0 = new Array(xdim*ydim);			// equilibrium values for all lattice directions
-	var eN = new Array(xdim*ydim);                  //  these are computed and used during the collision step
-	var eS = new Array(xdim*ydim);			// and then used to compute the stress, or delta entropy,
-	var eE = new Array(xdim*ydim);                  // to make this an ELBM which is much more stable.
-	var eW = new Array(xdim*ydim);
-	var eNE = new Array(xdim*ydim);
-	var eSE = new Array(xdim*ydim);
-	var eNW = new Array(xdim*ydim);
-	var eSW = new Array(xdim*ydim);
+	var e0 = new Float32Array(xdim*ydim);			// equilibrium values for all lattice directions
+	var eN = new Float32Array(xdim*ydim);                  //  these are computed and used during the collision step
+	var eS = new Float32Array(xdim*ydim);			// and then used to compute the stress, or delta entropy,
+	var eE = new Float32Array(xdim*ydim);                  // to make this an ELBM which is much more stable.
+	var eW = new Float32Array(xdim*ydim);
+	var eNE = new Float32Array(xdim*ydim);
+	var eSE = new Float32Array(xdim*ydim);
+	var eNW = new Float32Array(xdim*ydim);
+	var eSW = new Float32Array(xdim*ydim);
 
 
 
-	var rho = new Array(xdim*ydim);			// macroscopic density
-	var ux = new Array(xdim*ydim);			// macroscopic velocity
-	var uy = new Array(xdim*ydim);
-	var curl = new Array(xdim*ydim);
-	var barrier = new Array(xdim*ydim);		// boolean array of barrier locations
+	var rho = new Float32Array(xdim*ydim);			// macroscopic density
+	var ux = new Float32Array(xdim*ydim);			// macroscopic velocity
+	var uy = new Float32Array(xdim*ydim);
+	var curl = new Float32Array(xdim*ydim);
+	var barrier = new Float32Array(xdim*ydim);		// boolean array of barrier locations
 
 
 
@@ -423,13 +416,13 @@ xmlhttp.send();
 	// Set up the array of colors for plotting (mimicks matplotlib "jet" colormap):
 	// (Kludge: Index nColors+1 labels the color used for drawing barriers.)
 	var nColors = 400;							// there are actually nColors+2 colors
-	var hexColorList = new Array(nColors+2);
-	var redList = new Array(nColors+2);
-	var greenList = new Array(nColors+2);
-	var blueList = new Array(nColors+2);
-	var redCurl = new Array(nColors+2);
-	var greenCurl = new Array(nColors+2);
-	var blueCurl = new Array(nColors+2);
+	var hexColorList = new Float32Array(nColors+2);
+	var redList = new Float32Array(nColors+2);
+	var greenList = new Float32Array(nColors+2);
+	var blueList = new Float32Array(nColors+2);
+	var redCurl = new Float32Array(nColors+2);
+	var greenCurl = new Float32Array(nColors+2);
+	var blueCurl = new Float32Array(nColors+2);
 	for (var c=0; c<=nColors; ++c) {
 		nc = c / nColors;
 		if (c < nColors/2) {
@@ -487,15 +480,15 @@ xmlhttp.send();
 
 	// Initialize array of partially transparant blacks, for drawing flow lines:
 	var transBlackArraySize = 50;
-	var transBlackArray = new Array(transBlackArraySize);
+	var transBlackArray = new Float32Array(transBlackArraySize);
 	for (var i=0; i<transBlackArraySize; i++) {
 		transBlackArray[i] = "rgba(0,0,0," + Number(i/transBlackArraySize).toFixed(2) + ")";
 	}
 
 	// Initialize tracers (but don't place them yet):
 	var nTracers = 1044;
-	var tracerX = new Array(nTracers);
-	var tracerY = new Array(nTracers);
+	var tracerX = new Float32Array(nTracers);
+	var tracerY = new Float32Array(nTracers);
 	for (var t=0; t<nTracers; t++) {
 		tracerX[t] = 0.0; tracerY[t] = 0.0;
 	}
@@ -541,8 +534,19 @@ xmlhttp.send();
 		for (var step=0; step<stepsPerFrame; step++) {
 			collide();
 			//stabilize
-			if (typeof n0 != 'undefined') {
-			const c = entropy(n0,nE,e0,eE);//, nW, nN, nS, nNE, nSE, nNW, nSW, e0, eE, eW, eN, eS, eNE, eSE, eNW, eSW);
+			let c;
+			if (typeof n0 != 'undefined') 
+				entropysaved = entropy(xdim,ydim,n0,nE, nW, nN, nS, nNE, nSE, nNW, nSW, e0, eE, eW, eN, eS, eNE, eSE, eNW, eSW);
+				n0=entropysaved[0];
+				nE=entropysaved[1];
+				nW=entropysaved[2];
+				nN=entropysaved[3];
+				nS=entropysaved[4];
+				nNE=entropysaved[5];
+				nSE=entropysaved[6];
+				nNW=entropysaved[7];
+				nSW=entropysaved[8];
+
 			//console.log(c);
 			stream();
 			if (tracerCheck.checked) moveTracers();
@@ -1215,10 +1219,10 @@ xmlhttp.send();
 	// Resize the grid:
 	function resize() {
 		// First up-sample the macroscopic variables into temporary arrays at max resolution:
-		var tempRho = new Array(canvas.width*canvas.height);
-		var tempUx = new Array(canvas.width*canvas.height);
-		var tempUy = new Array(canvas.width*canvas.height);
-		var tempBarrier = new Array(canvas.width*canvas.height);
+		var tempRho = new Float32Array(canvas.width*canvas.height);
+		var tempUx = new Float32Array(canvas.width*canvas.height);
+		var tempUy = new Float32Array(canvas.width*canvas.height);
+		var tempBarrier = new Float32Array(canvas.width*canvas.height);
 		for (var y=0; y<canvas.height; y++) {
 			for (var x=0; x<canvas.width; x++) {
 				var tempIndex = x + y*canvas.width;
@@ -1238,20 +1242,20 @@ xmlhttp.send();
 		xdim = canvas.width / pxPerSquare;
 		ydim = canvas.height / pxPerSquare;
 		// Create new arrays at the desired resolution:
-		n0 = new Array(xdim*ydim);
-		nN = new Array(xdim*ydim);
-		nS = new Array(xdim*ydim);
-		nE = new Array(xdim*ydim);
-		nW = new Array(xdim*ydim);
-		nNE = new Array(xdim*ydim);
-		nSE = new Array(xdim*ydim);
-		nNW = new Array(xdim*ydim);
-		nSW = new Array(xdim*ydim);
-		rho = new Array(xdim*ydim);
-		ux = new Array(xdim*ydim);
-		uy = new Array(xdim*ydim);
-		curl = new Array(xdim*ydim);
-		barrier = new Array(xdim*ydim);
+		n0 = new Float32Array(xdim*ydim);
+		nN = new Float32Array(xdim*ydim);
+		nS = new Float32Array(xdim*ydim);
+		nE = new Float32Array(xdim*ydim);
+		nW = new Float32Array(xdim*ydim);
+		nNE = new Float32Array(xdim*ydim);
+		nSE = new Float32Array(xdim*ydim);
+		nNW = new Float32Array(xdim*ydim);
+		nSW = new Float32Array(xdim*ydim);
+		rho = new Float32Array(xdim*ydim);
+		ux = new Float32Array(xdim*ydim);
+		uy = new Float32Array(xdim*ydim);
+		curl = new Float32Array(xdim*ydim);
+		barrier = new Float32Array(xdim*ydim);
 		// Down-sample the temporary arrays into the new arrays:
 		for (var yNew=0; yNew<ydim; yNew++) {
 			for (var xNew=0; xNew<xdim; xNew++) {
