@@ -259,7 +259,7 @@ const entropy = gpu.createKernel(function(xdim,ydim,n0,nE, nW, nN, nS, nNE, nSE,
 			eSEi*0.9+nSEi*0.1, 
 			eNWi*0.9+nNWi*0.1, 
 			eSWi*0.9+nSWi*0.1]);
-	}
+	} 
 })
 	.setOutput([xdim,ydim])
 	.setConstants({STRESS_LIMIT});
@@ -537,15 +537,16 @@ xmlhttp.send();
 			let c;
 			if (typeof n0 != 'undefined') 
 				entropysaved = entropy(xdim,ydim,n0,nE, nW, nN, nS, nNE, nSE, nNW, nSW, e0, eE, eW, eN, eS, eNE, eSE, eNW, eSW);
-				n0=entropysaved[0];
-				nE=entropysaved[1];
-				nW=entropysaved[2];
-				nN=entropysaved[3];
-				nS=entropysaved[4];
-				nNE=entropysaved[5];
-				nSE=entropysaved[6];
-				nNW=entropysaved[7];
-				nSW=entropysaved[8];
+				let arr = entropysaved.toArray();
+				n0=arr[0];
+				nE=arr[1];
+				nW=arr[2];
+				nN=arr[3];
+				nS=arr[4];
+				nNE=arr[5];
+				nSE=arr[6];
+				nNW=arr[7];
+				nSW=arr[8];
 
 			//console.log(c);
 			stream();
