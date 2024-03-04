@@ -1,79 +1,17 @@
-<!DOCTYPE HTML>
-<!--
-	A lattice-Boltzmann fluid simulation in JavaScript, using HTML5 canvas for graphics
-	
-	Copyright 2013, Daniel V. Schroeder
-
-	Permission is hereby granted, free of charge, to any person obtaining a copy of 
-	this software and associated data and documentation (the "Software"), to deal in 
-	the Software without restriction, including without limitation the rights to 
-	use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-	of the Software, and to permit persons to whom the Software is furnished to do 
-	so, subject to the following conditions:
-
-	The above copyright notice and this permission notice shall be included in all 
-	copies or substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-	INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
-	PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR 
-	ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
-	OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
-	OTHER DEALINGS IN THE SOFTWARE.
-
-	Except as contained in this notice, the name of the author shall not be used in 
-	advertising or otherwise to promote the sale, use or other dealings in this 
-	Software without prior written authorization.
-
-	Credits:
-	The "wind tunnel" entry/exit conditions are inspired by Graham Pullan's code
-	(http://www.many-core.group.cam.ac.uk/projects/LBdemo.shtml).  Additional inspiration from 
-	Thomas Pohl's applet (http://thomas-pohl.info/work/lba.html).  Other portions of code are based 
-	on Wagner (http://www.ndsu.edu/physics/people/faculty/wagner/lattice_boltzmann_codes/) and
-	G nsalves (http://www.physics.buffalo.edu/phy411-506-2004/index.html; code adapted from Succi,
-	http://global.oup.com/academic/product/the-lattice-boltzmann-equation-9780199679249).
-
-	Revision history:
-	First version, with only start/stop, speed, and viscosity controls, February 2013
-	Added resolution control, mouse interaction, plot options, etc., March 2013
-	Added sensor, contrast slider, improved tracer placement, Fy period readout, May 2013
-	Added option to animate using setTimeout instead of requestAnimationFrame, July 2013
-	Added "Flowline" plotting (actually just line segments), August 2013
-	
-	Still to do:
-	* Fix the apparent bug in the force calculation that gives inconsistent results depending
-		on initial conditions.  Perhaps bounce-backs between adjacent barrier sites don't cancel?
-	* Grabbing the sensor while "drag fluid" selected causes a momentary drag at previous mouse location.
-	* Try to pass two-fingered touch events on to the browser, so it's still possible to zoom in and out.
-	* Work on GUI control layout, especially for smaller screens.
-	* Treat ends symmetrically when flow speed is zero.
-	* Try some other visualization techniques.
--->
-<html>
-
-<head>
+<!DOCTYPE html>
+<!-- saved from url=(0043)https://physics.weber.edu/schroeder/fluids/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>Fluid Dynamics Simulation</title>
-<script src="https://code.jquery.com/jquery-3.7.1.slim.js" integrity="sha256-UgvvN8vBkgO0luPSUl2s8TIlOSYRoGFAX4jlCIm9Adc=" crossorigin="anonymous"></script>
-<!-- script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@latest/dist/tf.min.js"></script>  -->
-<script src="https://docs.opencv.org/3.3.1/opencv.js"></script>
 
-<!-- script src="https://cdn.jsdelivr.net/npm/gpu.js@latest/dist/gpu-browser.min.js"></script -->
-
-<meta charset="utf-8">
 <meta name="viewport" content="width=620">
 <style>
 	body {background-color:#ffffff; font-family:Arial, sans-serif; font-size:14px;
-					text-align:center !important;}						/* gray background, center everything */
+					text-align:center;}						/* gray background, center everything */
 	p {margin-left:auto; margin-right:auto; width:600px;}	/* keep paragraphs narrow and centered */
 	input {font-size:115%;}									/* make buttons bigger */
 	input[type="range"] {width:90px;}						/* make sliders shorter */
 	select {font-size:115%;}								/* make selectors bigger too */
 	li {text-align:left;}
-	button { display: inline-block; width: 6em; }
-	button .butmoji { font-size: 200% }
-	div.slider { font-size:120%; margin-top:.1em; width: 600px; display:inline-block; }
-	input[type="range"] { width:300px; }
 </style>
 </head>
 
@@ -82,43 +20,33 @@
 <h2>Fluid Dynamics Simulation</h2>
 
 <p>By <a href="http://physics.weber.edu/schroeder/">Dan Schroeder</a>, 
-<a href="http://physics.weber.edu">Physics Department</a>, 
-<a href="http://weber.edu">Weber State University</a></p>
+<a href="http://physics.weber.edu/">Physics Department</a>, 
+<a href="http://weber.edu/">Weber State University</a></p>
 
-<canvas id="theCanvas" style="width:900px; height:450px;" width="900" height="450">This application runs only in modern
+<canvas id="theCanvas" width="600" height="240">This application runs only in modern
 browsers. For best results, use Google Chrome.</canvas>
-<p><b>Hold SHIFT to join consecutive clicks with straight lines</b></p>
-<div style="margin-bottom:0.5em" >
-	<select id="sizeSelect" onchange="resize()">
-		<option value="6">100 x 40</option>
-	</select>
-	<script>
-		/*
-	var barrierSelect = document.getElementById('barrierSelect');
-	for (var barrierIndex=0; barrierIndex<barrierList.length; barrierIndex++) {
-		var shape = document.createElement("option");
-		shape.text = barrierList[barrierIndex].name;
-		barrierSelect.add(shape, null);
-	} */
-	</script>
-	<button id="resetFluidButton" onclick="initFluid()" type="button"><div class="butmoji">⏮</div><div class="label">Reset flow</div></button>
-	<button id="stepButton" type="button" onclick="simulate()"><div class="butmoji">⏯</div><div class="label">Step</div></button>
-	<button id="startButton" type="button" onclick="startStop()"><div class="butmoji">⏩</div><div class="label">Start</div></button>
-	<div class="spacer" style="display: inline-block; width:150px;"></div>
-	<button id="drawButton" type="button" onclick="drawButton()"><div class="butmoji"><img src="drawing.png" style="width:33px;height:33px; margin-bottom:-8px;"></div><div class="label">draw</div></button>
-	<button id="eraseButton" type="button" onclick="eraseButton()"><div class="butmoji"><img src="erase.png" style="width:33px;height:33px; margin-bottom:-8px;"></div><div class="label">erase</div></button>
-	<button id="clearButton" type="button" onclick="clearBarriers()"><div class="butmoji"><img src="eraser.png" style="width: 33px;height:33px; margin-bottom:-8px;"></div><div class="label">clear all</div></button>
-</div>
-<div class="slider">
-	Flow speed: <span id="speedValue">0.060</span><br>
-	<input id="speedSlider" type="range" min="0" max="0.12" step="0.005" value="0.1" onmousemove="adjustSpeed()">
-</div>
-<br>
-<div class="slider">
-	Viscosity: <span id="viscValue">0.003</span><br>
-	<input id="viscSlider" type="range" min="0.001" max="0.013" step="0.002" value="0.003" onmousemove="adjustViscosity()">
-</div>
 
+<div>
+	<select id="sizeSelect" onchange="resize()">
+		<option value="10">60 x 24</option>
+		<option value="8">75 x 30</option>
+		<option value="6">100 x 40</option>
+		<option value="5">120 x 48</option>
+		<option value="4">150 x 60</option>
+		<option value="3">200 x 80</option>
+		<option value="2">300 x 120</option>
+		<option value="1">600 x 240</option>
+	</select>
+	<input id="resetFluidButton" type="button" onclick="initFluid()" value="Reset fluid">
+	<input id="stepButton" type="button" onclick="simulate()" value="Step">
+	<input id="startButton" type="button" onclick="startStop()" value="Start">
+</div>
+<div>
+	Flow speed = <span id="speedValue">0.100</span> 
+	<input id="speedSlider" type="range" min="0" max="0.12" step="0.005" value="0.1" onchange="adjustSpeed()">
+	&nbsp;&nbsp;Viscosity = <span id="viscValue">0.020</span>
+	<input id="viscSlider" type="range" min="0.005" max="0.2" step="0.005" value="0.02" onchange="adjustViscosity()">
+</div>
 <div style="margin-top:3px">
 	<select id="mouseSelect">
 		<option value="draw">Draw barriers</option>
@@ -127,7 +55,8 @@ browsers. For best results, use Google Chrome.</canvas>
 	</select>
 	<select id="barrierSelect" onchange="placePresetBarrier()">
 		<option>Barrier shapes</option>
-	</select>
+	<option>Short line</option><option>Long line</option><option>Diagonal</option><option>Shallow diagonal</option><option>Small circle</option><option>Large circle</option><option>Line with spoiler</option><option>Circle with spoiler</option><option>Right angle</option><option>Wedge</option><option>Airfoil</option></select>
+	<input id="clearButton" type="button" onclick="clearBarriers()" value="Clear barriers">
 </div>
 <div>
 	<select id="plotSelect" onchange="paintCanvas()">
@@ -135,16 +64,16 @@ browsers. For best results, use Google Chrome.</canvas>
 		<option>Plot x velocity</option>
 		<option>Plot y velocity</option>
 		<option>Plot speed</option>
-		<option selected>Plot curl</option>
+		<option selected="">Plot curl</option>
 	</select>
 	&nbsp;&nbsp;Contrast:
 	<input id="contrastSlider" type="range" min="-10" max="10" step="1" value="0" onchange="paintCanvas()">
 </div>
 <div>
 	Animation speed:
-	<input id="stepsSlider" type="range" min="1" max="40" step="1" value="5" onchange="resetTimer()">
-	&nbsp;&nbsp;Steps/frames per second: <span id="speedReadout">0</span>
-	&nbsp;&nbsp;<input id="rafCheck" type="checkbox" checked onchange="resetTimer()">Faster?
+	<input id="stepsSlider" type="range" min="1" max="40" step="1" value="20" onchange="resetTimer()">
+	&nbsp;&nbsp;Steps per second: <span id="speedReadout">0</span>
+	&nbsp;&nbsp;<input id="rafCheck" type="checkbox" checked="" onchange="resetTimer()">Faster?
 </div>
 <div style="margin-top:4px">
 	<!--<input id="pixelCheck" type="checkbox" checked onchange="resetTimer()">Use pixel graphics-->
@@ -156,7 +85,7 @@ browsers. For best results, use Google Chrome.</canvas>
 	<input id="dataCheck" type="checkbox" onchange="showData()">Data
 </div>
 <div id="dataSection" style="display:none">
-	<textarea id="dataArea" rows="8" cols="50" disabled readonly></textarea>
+	<textarea id="dataArea" rows="8" cols="50" disabled="" readonly=""></textarea>
 	<div>
 		<input id="dataButton" type="button" value="Start data collection" onclick="startOrStopData()">
 		<input id="periodButton" type="button" value="Show F_y period" onclick="showPeriod()">
@@ -172,12 +101,12 @@ fluid around, plot other quantities besides the curl, show the force exerted by 
 on the barriers, and measure the fluid's density and velocity at any point. Enjoy!</p>
 
 <p style="text-align:left">This simulation is intended for qualitative and semi-quantitative educational 
-demonstrations&mdash;not for serious engineering use.  One obvious limitation is that it simulates
+demonstrations—not for serious engineering use.  One obvious limitation is that it simulates
 a fluid in only two dimensions rather than three.  It is also limited to modeling fluids at
 constant temperature and with flow velocities that are at least a few times less than the speed of sound.
 Perhaps the most important limitation, though, concerns the length and time scale.  The simulation
 uses an arbitrary system of units, so the only way to compare to the real world is through the
-dimensionless Reynolds number, defined as (length)(velocity)/(viscosity), where &ldquo;length&rdquo; 
+dimensionless Reynolds number, defined as (length)(velocity)/(viscosity), where “length” 
 is the characteristic size of whatever the fluid is flowing around or through.  The practical limit
 on the Reynolds number in this simulation is a few hundred, whereas a typical Reynolds number for
 air flowing around a bicyclist is roughly 100,000.  Higher Reynolds numbers result in more levels of
@@ -197,9 +126,9 @@ Some very old browsers may not even be able to display the slider controls.</p>
 </p>
 <div style="margin-left:auto; margin-right:auto; width:600px;">
 	<ul>
-	<li><a href="LatticeBoltzmannDemo.java.txt">A similar simulation in Java</a></li>
-	<li><a href="LatticeBoltzmannDemo.py.txt">A similar simulation in Python</a></li>
-	<li><a href="FluidSimulationsForUndergrads.pdf">Poster presentation</a> 
+	<li><a href="https://physics.weber.edu/schroeder/fluids/LatticeBoltzmannDemo.java.txt">A similar simulation in Java</a></li>
+	<li><a href="https://physics.weber.edu/schroeder/fluids/LatticeBoltzmannDemo.py.txt">A similar simulation in Python</a></li>
+	<li><a href="https://physics.weber.edu/schroeder/fluids/FluidSimulationsForUndergrads.pdf">Poster presentation</a> 
 	given at the AAPT summer meeting, 2013 (pdf, 2.6 MB)</li>
 	<li><a href="http://physics.weber.edu/schroeder/javacourse/LatticeBoltzmann.pdf">Instructions</a> 
 	for a lattice-Boltzmann project in a computational physics course</li>
@@ -207,109 +136,34 @@ Some very old browsers may not even be able to display the slider controls.</p>
 	</ul>
 </div>
 
+<script src="./Fluid Dynamics Simulation_files/barrierdata.js"></script>
 <script>
-const STRESS_LIMIT = -0.01;
-const canvasWidth = 600;
-const canvasHeight = 300;
-let pxPerSquare = 6;
-let xdim = canvasWidth / pxPerSquare;
-let ydim = canvasHeight / pxPerSquare;
-var ofs = 0;
-// Compute the stress, or change in entropy, at each lattice site:
-const entropy = function() {
-   for (var y = 1; y<ydim;++y){
-        for (var x = 1; x < xdim; ++x){
-		let i = x + y*xdim;
-		const n0i = n0[i];
-		const nEi = nE[i];
-		const nWi = nW[i];
-		const nNi = nN[i];
-		const nSi = nS[i];
-		const nNEi = nNE[i];
-		const nSEi = nSE[i];
-		const nNWi = nNW[i];
-		const nSWi = nSW[i];
-		const e0i = e0[i];
-		const eEi = eE[i];
-		const eWi = eW[i];
-		const eNi = eN[i];
-		const eSi = eS[i];
-		const eNEi = eNE[i];
-		const eSEi = eSE[i];
-		const eNWi = eNW[i];
-		const eSWi = eSW[i];
-		const stress = (e0i-n0i)*(e0i-n0i)/e0i
-			   + (eEi-nEi)*(eEi-nEi)/eEi;
-			   + (eWi-nWi)*(eWi-nWi)/eWi
-			   + (eNi-nNi)*(eNi-nNi)/eNi
-			   + (eSi-nSi)*(eSi-nSi)/eSi
-			   + (eNEi-nNEi)*(eNEi-nNEi)/eNEi
-			   + (eSEi-nSEi)*(eSEi-nSEi)/eSEi
-			   + (eNWi-nNWi)*(eNWi-nNWi)/eNWi
-			   + (eSWi-nSWi)*(eSWi-nSWi)/eSWi
-		;
-			if (x > -3 || stress > STRESS_LIMIT) {
-			n0[i] = e0i*0.5+n0i*0.5;
-			nE[i] = eEi*0.5+nEi*0.5; 
-			nW[i] = eWi*0.5+nWi*0.5;
-			nN[i] = eNi*0.5+nNi*0.5; 
-			nS[i] = eSi*0.5+nSi*0.5;
-			nNE[i] = eNEi*0.5+nNEi*0.5;
-			nSE[i] = eSEi*0.5+nSEi*0.5;
-			nNW[i] = eNWi*0.5+nNWi*0.5;
-			nSW[i] = eSWi*0.5+nSWi*0.5;
-		} 
-	    }
-	}
-}
-
-var barrierList;
-var xmlhttp = new XMLHttpRequest();
-xmlhttp.onreadystatechange = function() {
-	if (this.readyState === 4 && this.status === 200) {
-        	barrierList = JSON.parse(this.responseText);
-		var barrierSelect = document.getElementById('barrierSelect');
-		for (var barrierIndex=0; barrierIndex<barrierList.length; barrierIndex++) {
-			var shape = document.createElement("option");
-			shape.text = barrierList[barrierIndex].name;
-			barrierSelect.add(shape, null);
-		}
-        }
-};
-xmlhttp.open("GET", "bdata.json", true);
-xmlhttp.send();
-      
-
-
-
-
-	const clamp = (val, min, max) => Math.min(Math.max(val, min), max)
-
 	// Global variables:	
-	var globalShiftKey;
-	var globalMouseX;
-	var globalMouseY;
 	var mobile = navigator.userAgent.match(/iPhone|iPad|iPod|Android|BlackBerry|Opera Mini|IEMobile/i)
 	var canvas = document.getElementById('theCanvas');
 	var context = canvas.getContext('2d');
 	var image = context.createImageData(canvas.width, canvas.height);		// for direct pixel manipulation (faster than fillRect)
 	for (var i=3; i<image.data.length; i+=4) image.data[i] = 255;			// set all alpha values to opaque
 	var sizeSelect = document.getElementById('sizeSelect');
-	sizeSelect.selectedIndex = 0;
-	if (mobile) sizeSelect.selectedIndex = 0;		// smaller works better on mobile platforms
-	//var pxPerSquare = Number(sizeSelect.options[sizeSelect.selectedIndex].value);
-	sizeSelect.style.display = 'none';
+	sizeSelect.selectedIndex = 5;
+	if (mobile) sizeSelect.selectedIndex = 1;		// smaller works better on mobile platforms
+	var pxPerSquare = Number(sizeSelect.options[sizeSelect.selectedIndex].value);
 													// width of plotted grid site in pixels
-	xdim = canvas.width / pxPerSquare;			// grid dimensions for simulation
-	ydim = canvas.height / pxPerSquare;
+	var xdim = canvas.width / pxPerSquare;			// grid dimensions for simulation
+	var ydim = canvas.height / pxPerSquare;
 	var stepsSlider = document.getElementById('stepsSlider');
 	var startButton = document.getElementById('startButton');
 	var speedSlider = document.getElementById('speedSlider');
 	var speedValue = document.getElementById('speedValue');
 	var viscSlider = document.getElementById('viscSlider');
 	var viscValue = document.getElementById('viscValue');
-	var mouseSelectSelectedIndex = 0; 
-	/* barrierSelect filled later */
+	var mouseSelect = document.getElementById('mouseSelect');
+	var barrierSelect = document.getElementById('barrierSelect');
+	for (var barrierIndex=0; barrierIndex<barrierList.length; barrierIndex++) {
+		var shape = document.createElement("option");
+		shape.text = barrierList[barrierIndex].name;
+		barrierSelect.add(shape, null);
+	}
 	var plotSelect = document.getElementById('plotSelect');
 	var contrastSlider = document.getElementById('contrastSlider');
 	//var pixelCheck = document.getElementById('pixelCheck');
@@ -341,8 +195,6 @@ xmlhttp.send();
 	var mouseX, mouseY;							// mouse location in canvas coordinates
 	var oldMouseX = -1, oldMouseY = -1;			// mouse coordinates from previous simulation frame
 	var collectingData = false;
-	var lastx = -1; // these 2 are to provide
-	var lasty = -1; //    continuous lines
 	var time = 0;								// time (in simulation step units) since data collection started
 	var showingPeriod = false;
 	var lastBarrierFy = 1;						// for determining when F_y oscillation begins
@@ -354,47 +206,23 @@ xmlhttp.send();
 	canvas.addEventListener('touchstart', mouseDown, false);
 	canvas.addEventListener('touchmove', mouseMove, false);
 	document.body.addEventListener('touchend', mouseUp, false);
-	document.body.addEventListener('keydown', keyDown, false);
-
-	document.body.addEventListener('keyup',keyUp, false);
 
 	// Create the arrays of fluid particle densities, etc. (using 1D arrays for speed):
 	// To index into these arrays, use x + y*xdim, traversing rows first and then columns.
-	var n0 = new Float32Array(xdim*ydim);			// microscopic densities along each lattice direction
-	
-	var nN = new Float32Array(xdim*ydim);
-	var nS = new Float32Array(xdim*ydim);
-	var nE = new Float32Array(xdim*ydim);
-	var nW = new Float32Array(xdim*ydim);
-	var nNE = new Float32Array(xdim*ydim);
-	var nSE = new Float32Array(xdim*ydim);
-	var nNW = new Float32Array(xdim*ydim);
-	var nSW = new Float32Array(xdim*ydim);
-
-
-	var e0 = new Float32Array(xdim*ydim);			// equilibrium values for all lattice directions
-	var eN = new Float32Array(xdim*ydim);                  //  these are computed and used during the collision step
-	var eS = new Float32Array(xdim*ydim);			// and then used to compute the stress, or delta entropy,
-	var eE = new Float32Array(xdim*ydim);                  // to make this an ELBM which is much more stable.
-	var eW = new Float32Array(xdim*ydim);
-	var eNE = new Float32Array(xdim*ydim);
-	var eSE = new Float32Array(xdim*ydim);
-	var eNW = new Float32Array(xdim*ydim);
-	var eSW = new Float32Array(xdim*ydim);
-
-
-
-	var rho = new Float32Array(xdim*ydim);			// macroscopic density
-	var ux = new Float32Array(xdim*ydim);			// macroscopic velocity
-	var uy = new Float32Array(xdim*ydim);
-	var curl = new Float32Array(xdim*ydim);
-	var barrier = new Float32Array(xdim*ydim);		// boolean array of barrier locations
-
-
-
-
-
-
+	var n0 = new Array(xdim*ydim);			// microscopic densities along each lattice direction
+	var nN = new Array(xdim*ydim);
+	var nS = new Array(xdim*ydim);
+	var nE = new Array(xdim*ydim);
+	var nW = new Array(xdim*ydim);
+	var nNE = new Array(xdim*ydim);
+	var nSE = new Array(xdim*ydim);
+	var nNW = new Array(xdim*ydim);
+	var nSW = new Array(xdim*ydim);
+	var rho = new Array(xdim*ydim);			// macroscopic density
+	var ux = new Array(xdim*ydim);			// macroscopic velocity
+	var uy = new Array(xdim*ydim);
+	var curl = new Array(xdim*ydim);
+	var barrier = new Array(xdim*ydim);		// boolean array of barrier locations
 
 	// Initialize to a steady rightward flow with no barriers:
 	for (var y=0; y<ydim; y++) {
@@ -414,31 +242,10 @@ xmlhttp.send();
 	// Set up the array of colors for plotting (mimicks matplotlib "jet" colormap):
 	// (Kludge: Index nColors+1 labels the color used for drawing barriers.)
 	var nColors = 400;							// there are actually nColors+2 colors
-	var hexColorList = new Float32Array(nColors+2);
-	var redList = new Float32Array(nColors+2);
-	var greenList = new Float32Array(nColors+2);
-	var blueList = new Float32Array(nColors+2);
-	var redCurl = new Float32Array(nColors+2);
-	var greenCurl = new Float32Array(nColors+2);
-	var blueCurl = new Float32Array(nColors+2);
-	for (var c=0; c<=nColors; ++c) {
-		nc = c / nColors;
-		if (c < nColors/2) {
-			redCurl[c] = maprange(nc,0,0.5, 255,0);
-			greenCurl[c] = maprange(nc, 0,0.5, 128,255);
-			blueCurl[c] = 0;
-		} else if (c <= nColors) {
-			redCurl[c] = 0;
-			greenCurl[c] = maprange(nc, 0.5,1.0, 255, 128);
-			blueCurl[c] = maprange(nc, 0.5,1.0,  0,255);
-		}
-		redCurl[c] = redCurl[c]     * 0.5 + 0. *128;     // /2 + 128;
-		greenCurl[c] = greenCurl[c] * 0.5 + 0.5*128;     // /2 + 128;
-		blueCurl[c]  = blueCurl[c]  * 0.2 + 0.8*128;
-	}
-	redCurl[nColors+1] = 0; greenCurl[nColors+1] = 0; blueCurl[nColors+1] = 0;
-
-
+	var hexColorList = new Array(nColors+2);
+	var redList = new Array(nColors+2);
+	var greenList = new Array(nColors+2);
+	var blueList = new Array(nColors+2);
 	for (var c=0; c<=nColors; c++) {
 		var r, g, b;
 		if (c < nColors/8) {
@@ -467,26 +274,17 @@ xmlhttp.send();
 		return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 	}
 
-	function maprange(inp,r1start,r1end,r2start,r2end) {
-		var r1mag = r1end-r1start;
-		var r2mag = r2end-r2start;
-		var infrac = (inp-r1start)/(r1end - r1start);
-		var out = r2start + infrac * (r2end - r2start);
-		return out;
-	}
-
-
 	// Initialize array of partially transparant blacks, for drawing flow lines:
 	var transBlackArraySize = 50;
-	var transBlackArray = new Float32Array(transBlackArraySize);
+	var transBlackArray = new Array(transBlackArraySize);
 	for (var i=0; i<transBlackArraySize; i++) {
 		transBlackArray[i] = "rgba(0,0,0," + Number(i/transBlackArraySize).toFixed(2) + ")";
 	}
 
 	// Initialize tracers (but don't place them yet):
-	var nTracers = 1044;
-	var tracerX = new Float32Array(nTracers);
-	var tracerY = new Float32Array(nTracers);
+	var nTracers = 144;
+	var tracerX = new Array(nTracers);
+	var tracerY = new Array(nTracers);
 	for (var t=0; t<nTracers; t++) {
 		tracerX[t] = 0.0; tracerY[t] = 0.0;
 	}
@@ -512,7 +310,7 @@ xmlhttp.send();
 		// Test to see if we're dragging the fluid:
 		var pushing = false;
 		var pushX, pushY, pushUX, pushUY;
-		if (mouseIsDown && mouseSelectSelectedIndex==2) {
+		if (mouseIsDown && mouseSelect.selectedIndex==2) {
 			if (oldMouseX >= 0) {
 				var gridLoc = canvasToGrid(mouseX, mouseY);
 				pushX = gridLoc.x;
@@ -528,10 +326,8 @@ xmlhttp.send();
 			oldMouseX = -1; oldMouseY = -1;
 		}
 		// Execute a bunch of time steps:
-		console.log("hhoohaa");
 		for (var step=0; step<stepsPerFrame; step++) {
 			collide();
-			entropy();
 			stream();
 			if (tracerCheck.checked) moveTracers();
 			if (pushing) push(pushX, pushY, pushUX, pushUY);
@@ -557,12 +353,16 @@ xmlhttp.send();
 			var elapsedTime = ((new Date()).getTime() - startTime) / 1000;	// time in seconds
 			speedReadout.innerHTML = Number(stepCount/elapsedTime).toFixed(0);
 		}
-
-		//if (!stable) {
-		//	window.alert("The simulation has become unstable due to excessive fluid speeds.");
-		//	startStop();
-		//	initFluid();
-		//}
+		var stable = true;
+		for (var x=0; x<xdim; x++) {
+			var index = x + (ydim/2)*xdim;	// look at middle row only
+			if (rho[index] <= 0) stable = false;
+		}
+		if (!stable) {
+			window.alert("The simulation has become unstable due to excessive fluid speeds.");
+			startStop();
+			initFluid();
+		}
 		if (running) {
 			if (rafCheck.checked) {
 				requestAnimFrame(function() { simulate(); });	// let browser schedule next frame
@@ -607,26 +407,15 @@ xmlhttp.send();
 				var uxuy2 = 2 * thisux * thisuy;
 				var u2 = ux2 + uy2;
 				var u215 = 1.5 * u2;
-
-				e0[i]  = four9ths * thisrho * (1                              - u215);
-				eE[i]  =   one9thrho * (1 + ux3       + 4.5*ux2        - u215);
-				eW[i]  =   one9thrho * (1 - ux3       + 4.5*ux2        - u215);
-				eN[i]  =   one9thrho * (1 + uy3       + 4.5*uy2        - u215);
-				eS[i]  =   one9thrho * (1 - uy3       + 4.5*uy2        - u215);
-				eNE[i] =  one36thrho * (1 + ux3 + uy3 + 4.5*(u2+uxuy2) - u215);
-				eSE[i] =  one36thrho * (1 + ux3 - uy3 + 4.5*(u2-uxuy2) - u215);
-				eNW[i] =  one36thrho * (1 - ux3 + uy3 + 4.5*(u2-uxuy2) - u215);
-				eSW[i] =  one36thrho * (1 - ux3 - uy3 + 4.5*(u2+uxuy2) - u215);
-
-				n0[i]  += omega * (e0[i] - n0[i]);
-				nE[i]  += omega * (eE[i] - nE[i]);
-				nW[i]  += omega * (eW[i] - nW[i]);
-				nN[i]  += omega * (eN[i] - nN[i]);
-				nS[i]  += omega * (eS[i] - nS[i]);
-				nNE[i]  += omega * (eNE[i] - nNE[i]);
-				nSE[i]  += omega * (eSE[i] - nSE[i]);
-				nNW[i]  += omega * (eNW[i] - nNW[i]);
-				nSW[i]  += omega * (eSW[i] - nSW[i]);
+				n0[i]  += omega * (four9ths*thisrho * (1                        - u215) - n0[i]);
+				nE[i]  += omega * (   one9thrho * (1 + ux3       + 4.5*ux2        - u215) - nE[i]);
+				nW[i]  += omega * (   one9thrho * (1 - ux3       + 4.5*ux2        - u215) - nW[i]);
+				nN[i]  += omega * (   one9thrho * (1 + uy3       + 4.5*uy2        - u215) - nN[i]);
+				nS[i]  += omega * (   one9thrho * (1 - uy3       + 4.5*uy2        - u215) - nS[i]);
+				nNE[i] += omega * (  one36thrho * (1 + ux3 + uy3 + 4.5*(u2+uxuy2) - u215) - nNE[i]);
+				nSE[i] += omega * (  one36thrho * (1 + ux3 - uy3 + 4.5*(u2-uxuy2) - u215) - nSE[i]);
+				nNW[i] += omega * (  one36thrho * (1 - ux3 + uy3 + 4.5*(u2-uxuy2) - u215) - nNW[i]);
+				nSW[i] += omega * (  one36thrho * (1 - ux3 - uy3 + 4.5*(u2+uxuy2) - u215) - nSW[i]);
 			}
 		}
 		for (var y=1; y<ydim-2; y++) {
@@ -666,7 +455,7 @@ xmlhttp.send();
 		}
 		for (var y=1; y<ydim-1; y++) {				// Now handle bounce-back from barriers
 			for (var x=1; x<xdim-1; x++) {
-					if (barrier[x+y*xdim]>0) {
+				if (barrier[x+y*xdim]) {
 					var index = x + y*xdim;
 					nE[x+1+y*xdim] = nW[index];
 					nW[x-1+y*xdim] = nE[index];
@@ -778,10 +567,8 @@ xmlhttp.send();
 		if (plotType == 4) computeCurl();
 		for (var y=0; y<ydim; y++) {
 			for (var x=0; x<xdim; x++) {
-					if (barrier[x+y*xdim]>0) {
+				if (barrier[x+y*xdim]) {
 					cIndex = nColors + 1;	// kludge for barrier color which isn't really part of color map
-					barrierSquare(x, y);
-					continue;
 				} else {
 					if (plotType == 0) {
 						cIndex = Math.round(nColors * ((rho[x+y*xdim]-1)*6*contrast + 0.5));
@@ -800,12 +587,7 @@ xmlhttp.send();
 				}
 				//if (pixelGraphics) {
 					//colorSquare(x, y, cIndex);
-				if (plotType != 4) {
-					colorSquare(x, y, redList[cIndex], greenList[cIndex], blueList[cIndex]);
-				} else {
-					colorSquare(x, y, redList[cIndex], greenList[cIndex], blueList[cIndex]);
-				}
-
+				colorSquare(x, y, redList[cIndex], greenList[cIndex], blueList[cIndex]);
 				//} else {
 				//	context.fillStyle = hexColorList[cIndex];
 				//	context.fillRect(x*pxPerSquare, (ydim-y-1)*pxPerSquare, pxPerSquare, pxPerSquare);
@@ -819,13 +601,7 @@ xmlhttp.send();
 		if (flowlineCheck.checked) drawFlowlines();
 		if (forceCheck.checked) drawForceArrow(barrierxSum/barrierCount, barrierySum/barrierCount, barrierFx, barrierFy);
 		if (sensorCheck.checked) drawSensor();
-		//console.log("canvas painted.");
-		drawShiftLineConnector();
 	}
-
-
-
-
 
 	// Color a grid square in the image data array, one pixel at a time (rgb each in range 0 to 255):
 	function colorSquare(x, y, r, g, b) {
@@ -844,41 +620,6 @@ xmlhttp.send();
 		}
 	}
 
-	// Color a barrier square in the image data array, one pixel at a time (rgb each in range 0 to 255):
-	function barrierSquare(x, y) {
-		var flippedy = ydim - y - 1;			// put y=0 at the bottom
-		
-		var py0=flippedy*pxPerSquare;
-		var py1=(flippedy+1)*pxPerSquare;
-		for (var py=py0;py<py1; py++) {
-			var px0=x*pxPerSquare;
-			var px1=(x+1)*pxPerSquare;
-			for (var px=px0; px<px1; px++) {
-				var index = (px + py*image.width) * 4;
-				var r = 160;//((x+y)%2)*255;
-				if (
-					px==px0 || 
-					//px==px1-1 || 
-				        py==py0 //|| 
-					//py==py1-1
-				) {
-
-					r=255;
-				}
-				if (px==px1-1 || py==py1-1){
-					r = 0;
-				}
-				image.data[index+0] = r;
-				image.data[index+1] = r;
-				image.data[index+2] = r;
-			}
-		}
-	}
-
-
-
-
-
 	// Compute the curl (actually times 2) of the macroscopic velocity field, for plotting:
 	function computeCurl() {
 		for (var y=1; y<ydim-1; y++) {			// interior sites only; leave edges set to zero
@@ -890,13 +631,11 @@ xmlhttp.send();
 
 	// Draw the tracer particles:
 	function drawTracers() {
+		context.fillStyle = "rgb(150,150,150)";
 		for (var t=0; t<nTracers; t++) {
 			var canvasX = (tracerX[t]+0.5) * pxPerSquare;
 			var canvasY = canvas.height - (tracerY[t]+0.5) * pxPerSquare;
-			context.fillStyle = "rgb(0,0,0)";
-			context.fillRect(canvasX-1, canvasY-1, 1, 1);
-			context.fillStyle = "rgb(255,255,255)";
-	       		context.fillRect(canvasX,canvasY, 1, 1);
+			context.fillRect(canvasX-1, canvasY-1, 2, 2);
 		}
 	}
 
@@ -956,27 +695,6 @@ xmlhttp.send();
 		context.setTransform(1, 0, 0, 1, 0, 0);
 	}
 
-	function drawShiftLineConnector() {
-		context.setTransform(1, 0, 0, 1, 0, 0);
-		var canvasLoc = pageToCanvas(globalMouseX, globalMouseY);
-		var gridLoc = canvasToGrid(canvasLoc.x, canvasLoc.y);
-		var canvasX = (lastx+0.5) * pxPerSquare;
-		var canvasY = canvas.height - (lasty+0.5) * pxPerSquare;
-		// console.log("last{x,y}="+lastx+","+lasty+" mloc="+gridLoc.x+","+gridLoc.y+" mouseIsDown="+mouseIsDown+" globalShiftKey="+globalShiftKey);
-		if (lastx > -1 && lasty > -1 && (!mouseIsDown) && globalShiftKey) {
-			context.beginPath();
-			context.moveTo(canvasX, canvasY);
-			context.lineTo(canvasLoc.x,canvasLoc.y);
-			context.strokeStyle="rgb(0,0,0)";
-			context.linewidth = 3;
-			context.stroke();
-			context.setTransform(1, 0, 0, 1, 0, 0);
-			//drawForceArrow(lastx,lasty,(gridLoc.x-lastx)/100, (gridLoc.y-lasty)/100);
-		}
-	}
-
-
-
 	// Draw the sensor and its associated data display:
 	function drawSensor() {
 		var canvasX = (sensorX+0.5) * pxPerSquare;
@@ -1022,9 +740,6 @@ xmlhttp.send();
 
 	// Functions to handle mouse/touch interaction:
 	function mouseDown(e) {
-		globalShiftKey = e.shiftKey;
-		globalMouseX = e.pageX;
-		globalMouseY = e.pageY;
 		if (sensorCheck.checked) {
 			var canvasLoc = pageToCanvas(e.pageX, e.pageY);
 			var gridLoc = canvasToGrid(canvasLoc.x, canvasLoc.y);
@@ -1037,51 +752,18 @@ xmlhttp.send();
 		mousePressDrag(e);
 	};
 	function mouseMove(e) {
-		globalShiftKey = e.shiftKey;
-		globalMouseX = e.pageX;
-		globalMouseY = e.pageY;
 		if (mouseIsDown) {
 			mousePressDrag(e);
 		}
-		//drawShiftLineConnector();
-		paintCanvas();
-	}
+	};
 	function mouseUp(e) {
 		mouseIsDown = false;
 		draggingSensor = false;
-		paintCanvas();
-	}
-
-	function keyDown(e) {
-		//console.log("keyDown");
-		//console.log(e);
-		globalShiftKey = e.shiftKey;
-		if (e.key == 'Escape') {
-			e.preventDefault();
-			clearBarriers();
-		}
-		if (e.code == 'Space') {
-			e.preventDefault();
-			startStop();
-		}
-		if (e.key == '.') {
-	       		e.preventDefault();
-	       		simulate();
-		}
-		paintCanvas();
-	}
-
-	function keyUp(e) {
-		//console.log("keyUP");
-		//console.log(e);
-		globalShiftKey = e.shiftKey;
-		paintCanvas();
-	}
+	};
 
 	// Handle mouse press or drag:
 	function mousePressDrag(e) {
 		e.preventDefault();
-		//console.log(e);
 		mouseIsDown = true;
 		var canvasLoc = pageToCanvas(e.pageX, e.pageY);
 		if (draggingSensor) {
@@ -1091,20 +773,17 @@ xmlhttp.send();
 			paintCanvas();
 			return;
 		}
-		if (mouseSelectSelectedIndex == 2) {
+		if (mouseSelect.selectedIndex == 2) {
 			mouseX = canvasLoc.x;
 			mouseY = canvasLoc.y;
-			paintCanvas();
-
 			return;
 		}
 		var gridLoc = canvasToGrid(canvasLoc.x, canvasLoc.y);
-		if (mouseSelectSelectedIndex == 0) {
-			addBarrier(gridLoc.x, gridLoc.y, e);
+		if (mouseSelect.selectedIndex == 0) {
+			addBarrier(gridLoc.x, gridLoc.y);
 			paintCanvas();
 		} else {
 			removeBarrier(gridLoc.x, gridLoc.y);
-			paintCanvas();
 		}
 	}
 
@@ -1124,76 +803,25 @@ xmlhttp.send();
 	}
 
 	// Add a barrier at a given grid coordinate location:
-	function addBarrier(x, y, e) {
-		var shiftKey = e.shiftKey;
-		if (!shiftKey && e.type=='mousedown') {
-			lastx=-1;
-			lasty=-1
-		}
-		var bval = e.ctrlKey ? 0.0:1.0;
-		//console.log("x="+x+" y="+y+" shiftKey="+shiftKey);
+	function addBarrier(x, y) {
 		if ((x > 1) && (x < xdim-2) && (y > 1) && (y < ydim-2)) {
-			barrier[x+y*xdim] = 1.0;
-			for (var qx = -0; qx <= 0; ++qx) {
-				for (var qy = -0; qy <= 0; ++qy) {
-					barrier[(x+qx)+(y+qy)*xdim] = bval;
-				}
-			}
-			if (lastx != -1 && lasty != -1) {
-				// draw line (icky!)
-				var dx = x - lastx;
-				var dy = y - lasty;
-				if (Math.abs(dx) > Math.abs(dy)) {
-					// function in x axis
-					for (var iix = 0; iix < Math.abs(dx); ++iix) {
-						var ix = iix * Math.sign(dx);
-						var iy = Math.floor(ix * dy / dx);
-						var lx = lastx + ix;
-						var ly = Math.floor(lasty + iy);
-						for (var qx = -0; qx <= 0; ++qx) {
-							for (var qy = -0; qy <= 0; ++qy) {
-								barrier[(lx+qx)+(ly+qy)*xdim] = bval;
-							}
-						}
-					}
-				} else {
-					// function in y axis
-					for (var iiy = 0; iiy < Math.abs(dy); ++iiy){
-						var iy = iiy * Math.sign(dy);
-						var ix = Math.floor(iy * dx/dy);
-						var lx = Math.floor(lastx + ix);
-						var ly = Math.floor(lasty + iy);
-						for (var qx = -0; qx <= 0; ++qx) {
-							for (var qy = -0; qy <= 0; ++qy) {
-								barrier[(lx+qx)+(ly+qy)*xdim] = bval;
-							}
-						}
-					}
-				}
-			}
-		lastx = x;
-		lasty = y;
+			barrier[x+y*xdim] = true;
 		}
 	}
 
 	// Remove a barrier at a given grid coordinate location:
 	function removeBarrier(x, y) {
-		if ((x > 1) && (x < xdim-2) && (y > 1) && (y < ydim-2)) {
-			barrier[x+y*xdim] = 0.0;
-			for (var qx = -3; qx <= 3; ++qx) {
-				for (var qy = -3; qy <= 3; ++qy) {
-					if (qx*qx+qy+qy < 10) barrier[(x+qx)+(y+qy)*xdim] = 0.0;
-				}
-			}
+		if (barrier[x+y*xdim]) {
+			barrier[x+y*xdim] = false;
+			paintCanvas();
 		}
-		paintCanvas();
 	}
 
 	// Clear all barriers:
 	function clearBarriers() {
 		for (var x=0; x<xdim; x++) {
 			for (var y=0; y<ydim; y++) {
-				barrier[x+y*xdim] = 0.0;
+				barrier[x+y*xdim] = false;
 			}
 		}
 		paintCanvas();
@@ -1202,10 +830,10 @@ xmlhttp.send();
 	// Resize the grid:
 	function resize() {
 		// First up-sample the macroscopic variables into temporary arrays at max resolution:
-		var tempRho = new Float32Array(canvas.width*canvas.height);
-		var tempUx = new Float32Array(canvas.width*canvas.height);
-		var tempUy = new Float32Array(canvas.width*canvas.height);
-		var tempBarrier = new Float32Array(canvas.width*canvas.height);
+		var tempRho = new Array(canvas.width*canvas.height);
+		var tempUx = new Array(canvas.width*canvas.height);
+		var tempUy = new Array(canvas.width*canvas.height);
+		var tempBarrier = new Array(canvas.width*canvas.height);
 		for (var y=0; y<canvas.height; y++) {
 			for (var x=0; x<canvas.width; x++) {
 				var tempIndex = x + y*canvas.width;
@@ -1225,20 +853,20 @@ xmlhttp.send();
 		xdim = canvas.width / pxPerSquare;
 		ydim = canvas.height / pxPerSquare;
 		// Create new arrays at the desired resolution:
-		n0 = new Float32Array(xdim*ydim);
-		nN = new Float32Array(xdim*ydim);
-		nS = new Float32Array(xdim*ydim);
-		nE = new Float32Array(xdim*ydim);
-		nW = new Float32Array(xdim*ydim);
-		nNE = new Float32Array(xdim*ydim);
-		nSE = new Float32Array(xdim*ydim);
-		nNW = new Float32Array(xdim*ydim);
-		nSW = new Float32Array(xdim*ydim);
-		rho = new Float32Array(xdim*ydim);
-		ux = new Float32Array(xdim*ydim);
-		uy = new Float32Array(xdim*ydim);
-		curl = new Float32Array(xdim*ydim);
-		barrier = new Float32Array(xdim*ydim);
+		n0 = new Array(xdim*ydim);
+		nN = new Array(xdim*ydim);
+		nS = new Array(xdim*ydim);
+		nE = new Array(xdim*ydim);
+		nW = new Array(xdim*ydim);
+		nNE = new Array(xdim*ydim);
+		nSE = new Array(xdim*ydim);
+		nNW = new Array(xdim*ydim);
+		nSW = new Array(xdim*ydim);
+		rho = new Array(xdim*ydim);
+		ux = new Array(xdim*ydim);
+		uy = new Array(xdim*ydim);
+		curl = new Array(xdim*ydim);
+		barrier = new Array(xdim*ydim);
 		// Down-sample the temporary arrays into the new arrays:
 		for (var yNew=0; yNew<ydim; yNew++) {
 			for (var xNew=0; xNew<xdim; xNew++) {
@@ -1252,12 +880,12 @@ xmlhttp.send();
 						rhoTotal += tempRho[index];
 						uxTotal += tempUx[index];
 						uyTotal += tempUy[index];
-							if (tempBarrier[index]>0) barrierTotal++;
+						if (tempBarrier[index]) barrierTotal++;
 					}
 				}
 				setEquil(xNew, yNew, uxTotal/(pxPerSquare*pxPerSquare), uyTotal/(pxPerSquare*pxPerSquare), rhoTotal/(pxPerSquare*pxPerSquare))
 				curl[xNew+yNew*xdim] = 0.0;
-				barrier[xNew+yNew*xdim] = (barrierTotal >= pxPerSquare*pxPerSquare/2)?1.0:0.0;
+				barrier[xNew+yNew*xdim] = (barrierTotal >= pxPerSquare*pxPerSquare/2);
 			}
 		}
 		setBoundaries();
@@ -1291,41 +919,13 @@ xmlhttp.send();
 	function startStop() {
 		running = !running;
 		if (running) {
-			$("#startButton div.butmoji").html("⏸");
-			$("#startButton div.label").html("Pause");
-			$("#stepButton").prop("disabled",true);
+			startButton.value = "Pause";
 			resetTimer();
 			simulate();
 		} else {
-			$("#startButton div.butmoji").html("⏩");
-			$("#startButton div.label").html("Run");
-			$("#stepButton").prop("disabled",false);
+			startButton.value = " Run ";
 		}
 	}
-
-	function updateDrawEraseButtons(){
-		if (mouseSelectSelectedIndex == 0) {
-			$("#drawButton").css("background-color","#ffff99");
-			$("#eraseButton").prop("disabled", false);
-			$("#eraseButton").css("background-color","");
-		} else {
-			$("#eraseButton").css("background-color","#ffff99");
-			$("#drawButton").prop("disabled", false);
-			$("#drawButton").css("background-color","");
-		}
-	}
-
-	function drawButton() {
-		mouseSelectSelectedIndex = 0;
-		updateDrawEraseButtons();
-	}
-
-	function eraseButton() {
-		mouseSelectSelectedIndex = 1;
-		updateDrawEraseButtons();
-	}
-
-
 
 	// Reset the timer that handles performance evaluation:
 	function resetTimer() {
@@ -1400,7 +1000,7 @@ xmlhttp.send();
 		dataArea.innerHTML += 'locations:[\n';
 		for (var y=1; y<ydim-1; y++) {
 			for (var x=1; x<xdim-1; x++) {
-					if (barrier[x+y*xdim]>0) dataArea.innerHTML += x + ',' + y + ',\n';
+				if (barrier[x+y*xdim]) dataArea.innerHTML += x + ',' + y + ',\n';
 			}
 		}
 		dataArea.innerHTML = dataArea.innerHTML.substr(0, dataArea.innerHTML.length-2); // remove final comma
@@ -1433,11 +1033,12 @@ xmlhttp.send();
 		for (var siteIndex=0; siteIndex<2*bCount; siteIndex+=2) {
 			var x = barrierList[index-1].locations[siteIndex] - xMin + Math.round(ydim/3);
 			var y = barrierList[index-1].locations[siteIndex+1] - yAverage + Math.round(ydim/2);
-			addBarrier(x, y, {shiftKey: false, ctrlKey: false});
+			addBarrier(x, y);
 		}
 		paintCanvas();
 		barrierSelect.selectedIndex = 0;	// A choice on this menu is a one-time action, not an ongoing setting
 	}
+
 	// Print debugging data:
 	function debug() {
 		dataArea.innerHTML = "Tracer locations:\n";
@@ -1446,17 +1047,6 @@ xmlhttp.send();
 		}
 	}
 </script>
-		<video id="videoInput"></video>
-<script>
-	let video = document.getElementById("videoInput"); // video is the id of video tag
-	navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-		.then(function(stream) {
-		        video.srcObject = stream;
-		        video.play();
-		})
-		.catch(function(err) {
-			console.log("An error occurred! " + err);
-		});
-</body>
-</html>
+    
 
+</body></html>

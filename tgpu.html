@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!-- vim:shiftwidth=4:softtabstop=4:expandtab:
+-->
+<html>
+    <head>
+        <script src="gpu-browser.js"></script>
+    </head>
+    <body>
+        <video id="movie" src="doc.mp4"></video>
+        <canvas id="dood" width=512 height=256></canvas>
+        <div id="status"></div>
+        <script>
+            var canvas = document.getElementById("dood");
+            var statusdiv = document.getElementById("status");
+            var movie = document.getElementById("movie");
+            gpu = new GPU.GPU({ context: canvas.getContext('webgl2'), canvas:canvas });
+            const kernel = gpu.createKernel(function(image) {
+                const pixel = image[this.thread.y][this.thread.x];
+                this.color(pixel[0], pixel[1], pixel[2], pixel[3]);
+                        },{
+                            graphical: true,
+                            output([500,500]});
+
+            kernel(movie);
+
+
+            /*
+            let lasttime = -1
+            function animate() {
+                thistime = Date.now();
+                if (lasttime != -1) {
+                    status.innerHTML=("FPS: "+Math.floor(10000/(thistime - lasttime))/10);
+                }
+                lasttime = thistime;
+                render(img);
+                window.requestAnimationFrame(animate);
+            }
+            window.requestAnimationFrame(animate);
+            */
+        </script>
+    </body>
+</html>
+<!--
+/*
+    +---+---+---+---+
+    | NW| N | NE| U |     Top-left nondrant    U = macroscopic U
+    +---+---+---+---+     are D2Q9 particle    V = macroscopic V
+    | W | O | E | V |     distributions.       P = macroscopic pressure or rho
+    +---+---+---+---+                          T = temperature
+    | SW| S | SE| P |     B = barrier
+    +---+---+---+---+         (or SWE depth)
+    | B | Fx| Fy| T |     Fx,Fy  forcing
+    +---+---+---+---+
+*/
+
+
+-->
