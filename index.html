@@ -209,7 +209,7 @@ Some very old browsers may not even be able to display the slider controls.</p>
 </div>
 
 <script>
-const STRESS_LIMIT = 0.001;
+const STRESS_LIMIT =0.1;
 const canvasWidth = 600;
 const canvasHeight = 300;
 let pxPerSquare = 6;
@@ -240,7 +240,7 @@ const entropy = function() {
         const eNWi = eNW[i];
         const eSWi = eSW[i];
         const stress = (e0i-n0i)*(e0i-n0i)/e0i
-               + (eEi-nEi)*(eEi-nEi)/eEi;
+               + (eEi-nEi)*(eEi-nEi)/eEi
                + (eWi-nWi)*(eWi-nWi)/eWi
                + (eNi-nNi)*(eNi-nNi)/eNi
                + (eSi-nSi)*(eSi-nSi)/eSi
@@ -249,7 +249,7 @@ const entropy = function() {
                + (eNWi-nNWi)*(eNWi-nNWi)/eNWi
                + (eSWi-nSWi)*(eSWi-nSWi)/eSWi
         ;
-            if (false ) { //stress > -STRESS_LIMIT) {
+        if (stress > STRESS_LIMIT) {
                 n0[i] = e0i;//*0.5+n0i*0.5;
                 nE[i] = eEi;//*0.5+nEi*0.5; 
                 nW[i] = eWi;//*0.5+nWi*0.5;
